@@ -3,43 +3,48 @@
 # Creates the Release and Release.gpg files for APT repo
 # based on Packages and Packages.gz files
 # The created files make the repo a "signed" repo
+# Changed Input for independent distributions and made a loop for all channels
 
-if [ "$1" = "" -o "$2" = "" ]; then echo "Usage: secureApt.sh DIST SUITE";exit 1;fi
+if [ "$1" = "" -o "$2" = "" ]; then echo "Usage: secureApt.sh DISTNAME RELEASENUMBER";exit 1;fi
+WOR_DIR='/var/cache/rhn/repodata'
 
-DATE=`date "+%a, %d %b %Y %H:%M:%S %z"`
-GPG_PASS='foobar'
+for I in $( ls -d $WOR_DIR/$1* )
+do
+	DATE=`date "+%a, %d %b %Y %H:%M:%S %z"`
+	GPG_PASS='pingUin'
+	HEADER="Origin: Ubuntu
+	Label: Ubuntu
+	Suite: $1
+	Version: $2
+	Codename: $1
+	Date: ${DATE}
+	Architectures: amd64
+	Components: repodata
+	Description: Ubuntu $1 $2
+	MD5Sum:"
 
-HEADER="Origin: Ubuntu
-Label: Ubuntu
-Suite: $2
-Version: 12.04
-Codename: $1
-Date: ${DATE}
-Architectures: amd64
-Components: repodata
-Description: Ubuntu Precise 12.04
-MD5Sum:"
+	PACKAGES_MD5=($(md5sum $I/Packages))
+	PACKAGES_SIZE=$(stat -c%s $I/Packages)
+	PACKAGESGZ_MD5=($(md5sum $I/Packages.gz))
+	PACKAGESGZ_SIZE=$(stat -c%s $I/Packages.gz)
+	PACKAGES_SHA256=($(sha256sum $I/Packages))
+	PACKAGESGZ_SHA256=($(sha256sum $I/Packages.gz))
 
-PACKAGES_MD5=($(md5sum Packages))
-PACKAGES_SIZE=$(stat -c%s Packages)
-PACKAGESGZ_MD5=($(md5sum Packages.gz))
-PACKAGESGZ_SIZE=$(stat -c%s Packages.gz)
-PACKAGES_SHA256=($(sha256sum Packages))
-PACKAGESGZ_SHA256=($(sha256sum Packages.gz))
+	# write Release file with MD5s
+	rm -rf $I/Release
+	echo -e "${HEADER}" > $I/Release
+	echo -e " ${PACKAGES_MD5}\t${PACKAGES_SIZE}\trepodata/binary-amd64/Packages" >> $I/Release
+	echo -e " ${PACKAGESGZ_MD5}\t${PACKAGESGZ_SIZE}\trepodata/binary-amd64/Packages.gz" >> $I/Release
+	echo -e " ${PACKAGES_MD5}\t${PACKAGES_SIZE}\trepodata/binary-i386/Packages" >> $I/Release
+	echo -e " ${PACKAGESGZ_MD5}\t${PACKAGESGZ_SIZE}\trepodata/binary-i386/Packages.gz" >> $I/Release
+	echo -e "SHA256:" >> $I/Release
+	echo -e " ${PACKAGES_SHA256}\t${PACKAGES_SIZE}\trepodata/binary-amd64/Packages" >> $I/Release
+	echo -e " ${PACKAGESGZ_SHA256}\t${PACKAGESGZ_SIZE}\trepodata/binary-amd64/Packages.gz" >> $I/Release
+	echo -e " ${PACKAGES_SHA256}\t${PACKAGES_SIZE}\trepodata/binary-i386/Packages" >> $I/Release
+	echo -e " ${PACKAGESGZ_SHA256}\t${PACKAGESGZ_SIZE}\trepodata/binary-i386/Packages.gz" >> $I/Release
 
-# write Release file with MD5s
-rm -rf Release
-echo -e "${HEADER}" > Release
-echo -e " ${PACKAGES_MD5}\t${PACKAGES_SIZE}\trepodata/binary-amd64/Packages" >> Release
-echo -e " ${PACKAGESGZ_MD5}\t${PACKAGESGZ_SIZE}\trepodata/binary-amd64/Packages.gz" >> Release
-echo -e " ${PACKAGES_MD5}\t${PACKAGES_SIZE}\trepodata/binary-i386/Packages" >> Release
-echo -e " ${PACKAGESGZ_MD5}\t${PACKAGESGZ_SIZE}\trepodata/binary-i386/Packages.gz" >> Release
-echo -e "SHA256:" >> Release
-echo -e " ${PACKAGES_SHA256}\t${PACKAGES_SIZE}\trepodata/binary-amd64/Packages" >> Release
-echo -e " ${PACKAGESGZ_SHA256}\t${PACKAGESGZ_SIZE}\trepodata/binary-amd64/Packages.gz" >> Release
-echo -e " ${PACKAGES_SHA256}\t${PACKAGES_SIZE}\trepodata/binary-i386/Packages" >> Release
-echo -e " ${PACKAGESGZ_SHA256}\t${PACKAGESGZ_SIZE}\trepodata/binary-i386/Packages.gz" >> Release
+	# write the signature for Release file
+	rm -rf $I/Release.gpg
+	echo $GPG_PASS | gpg --armor --detach-sign -o $I/Release.gpg --batch --no-tty --passphrase-fd 0 --sign $I/Release
 
-# write the signature for Release file
-rm -rf Release.gpg
-echo $GPG_PASS | gpg --armor --detach-sign -o Release.gpg --batch --no-tty --passphrase-fd 0 --sign Release
+done
