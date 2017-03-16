@@ -11,7 +11,7 @@ WOR_DIR='/var/cache/rhn/repodata'
 for I in $( ls -d $WOR_DIR/$1* )
 do
 	DATE=`date "+%a, %d %b %Y %H:%M:%S %z"`
-	GPG_PASS='pingUin'
+	GPG_PASS='password'
 	HEADER="Origin: Ubuntu
 	Label: Ubuntu
 	Suite: $1
